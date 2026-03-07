@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import jv
 
-def calculate_array_params(f_center, f_margin, scan_angle, gain_min, taper_db, eff_horn):
+def calculate_array_params(f_center, f_margin, scan_angle, theta_g, gain_min, taper_db, eff_horn, misc_losses):
     # Frequencies in GHz -> Wavelengths in meters
     c = 0.299792458
     f_high = f_center + f_margin
@@ -12,93 +12,112 @@ def calculate_array_params(f_center, f_margin, scan_angle, gain_min, taper_db, e
     lambda_h = c / f_high
     lambda_l = c / f_low
     
-    # 1. Element Spacing (Hexagonal) using highest frequency
-    # Grating lobe placed 1 degree outside scan region for small scans
-    grating_lobe = scan_angle + 1.0 
-    
-    denom = math.sin(math.radians(scan_angle)) + math.sin(math.radians(grating_lobe))
+    # 1. Element Spacing (Hexagonal) using highest frequency to avoid grating lobes
+    denom = math.sin(math.radians(scan_angle)) + math.sin(math.radians(theta_g))
     spacing_lambda_h = 1.1547 / denom
     spacing_meters = spacing_lambda_h * lambda_h
     
     # Spacing in terms of lowest frequency wavelength for directivity
     spacing_lambda_l = spacing_meters / lambda_l
     
-    # 2. Element Directivity
-    # Hexagonal unit cell area A = (sqrt(3)/2) * d^2, but based on context equations 
-    # we approximate area to spacing^2 for the directivity formula consistency.
+    # 2. Element Directivity (De)
     element_eff = eff_horn / 100.0
     d_e = 10 * math.log10(element_eff * 4 * math.pi * (spacing_lambda_l**2))
     
-    # 3. Peak Directivity Required
-    # Taper loss calculation
-    T = 10**(taper_db / 20.0)
-    eff_taper = 75 * ((1 + T)**2 / (1 + T + T**2)) / 100.0
+    # 3. Peak Directivity Required (Dp)
+    # Taper efficiency calculation
+    T = 10**(-taper_db / 20.0)
+    eff_taper = 0.75 * ((1 + T)**2 / (1 + T + T**2))
     taper_loss = -10 * math.log10(eff_taper)
     
     # Scan loss calculation (Potter horn constant A = 70)
-    theta_3 = 70.0 * (1.0 / spacing_lambda_h)
+    theta_3 = 70.0 / spacing_lambda_h
     scan_loss = 3 * (scan_angle / (0.5 * theta_3))**2
     
-    peak_directivity = gain_min + scan_loss + taper_loss
+    # Total required peak directivity
+    peak_directivity = gain_min + taper_loss + misc_losses + scan_loss
     
-    # 4. Number of Elements
-    num_elements = 10**(0.1 * peak_directivity - 0.1 * d_e)
+    # 4. Number of Elements (Raw theoretical)
+    num_elements_raw = 10**(0.1 * peak_directivity - 0.1 * d_e)
+    
+    # 5. Aperture Diameter (D_aperture)
+    # Area of hex unit cell = (sqrt(3)/2) * dh^2. 
+    # For a circular aperture, Area = pi * (D/2)^2 = N * Area_cell
+    D_aperture = math.sqrt(4 * num_elements_raw / (math.pi * 1.1547)) * spacing_meters
     
     return {
+        "lambda_h": lambda_h,
         "spacing_lambda_h": spacing_lambda_h,
         "spacing_meters": spacing_meters,
         "element_directivity": d_e,
         "taper_loss": taper_loss,
         "scan_loss": scan_loss,
         "peak_directivity": peak_directivity,
-        "num_elements": math.ceil(num_elements)
+        "num_elements_raw": num_elements_raw,
+        "D_aperture": D_aperture
     }
 
-def plot_hexagonal_lattice(num_elements, spacing_in, plot_title):
-    fig, ax = plt.subplots(figsize=(5, 5))
+def plot_hexagonal_lattice_circular(D_aperture, spacing_m, plot_title):
+    fig, ax = plt.subplots(figsize=(6, 6))
     ax.set_aspect('equal')
     ax.set_title(plot_title)
-    ax.set_xlabel("Element Spacing (in)")
-    ax.set_ylabel("Element Spacing (in)")
+    ax.set_xlabel("X Position (mm)")
+    ax.set_ylabel("Y Position (mm)")
     
-    # Estimate depth based on hexagonal rings
-    depth = int(math.ceil(math.sqrt(num_elements / 3.0)))
-    ax.set_ylim([-depth * spacing_in, depth * spacing_in])
-    ax.set_xlim([-depth * spacing_in, depth * spacing_in])
+    radius_m = D_aperture / 2.0
+    spacing_mm = spacing_m * 1000.0
+    radius_mm = radius_m * 1000.0
     
-    points_x, points_y = [0], [0]
-    for q in range(-depth, depth + 1):
-        for r in range(max(-depth, -q - depth), min(depth, -q + depth) + 1):
-            if q == 0 and r == 0:
-                continue
-            x = spacing_in * (math.sqrt(3) * q + math.sqrt(3)/2 * r)
-            y = spacing_in * (3/2 * r)
-            points_x.append(x)
-            points_y.append(y)
+    # Estimate max indices to cover the circle
+    max_idx = int(math.ceil(radius_mm / spacing_mm)) * 2
+    ax.set_ylim([-radius_mm * 1.2, radius_mm * 1.2])
+    ax.set_xlim([-radius_mm * 1.2, radius_mm * 1.2])
+    
+    points_x, points_y = [], []
+    
+    # Generate hexagonal grid points
+    for q in range(-max_idx, max_idx + 1):
+        for r in range(-max_idx, max_idx + 1):
+            x = spacing_mm * (math.sqrt(3) * q + math.sqrt(3)/2 * r)
+            y = spacing_mm * (3/2 * r)
             
-    # Scatter and draw circles for the exact number of elements
-    points_x = points_x[:num_elements]
-    points_y = points_y[:num_elements]
+            # Clip elements outside the circular aperture boundary
+            if math.sqrt(x**2 + y**2) <= radius_mm:
+                points_x.append(x)
+                points_y.append(y)
+                
+    actual_elements = len(points_x)
     
-    for i in range(len(points_x)):
-        circle = plt.Circle((points_x[i], points_y[i]), radius=spacing_in/2, fill=True, color='#1f77b4', alpha=0.8)
+    # Draw elements
+    for i in range(actual_elements):
+        circle = plt.Circle((points_x[i], points_y[i]), radius=spacing_mm/2 * 0.9, fill=True, color='#1f77b4', alpha=0.8)
         ax.add_patch(circle)
         
-    ax.scatter(points_x, points_y, color='black', s=5)
-    return fig
-
-def plot_bessel_pattern(D_p, L_hx):
-    plot_angle = 30
-    in_array = np.linspace(-plot_angle, plot_angle, 1000)
-    # Avoid zero division
-    in_array[in_array == 0] = 1e-5 
+    ax.scatter(points_x, points_y, color='black', s=5, zorder=3)
     
-    t = np.pi * (in_array / 180.0)
-    bessel_trail = np.pi * L_hx * np.sin(t)
-    bessel_pattern = D_p + 10 * np.log10((2 * jv(1, bessel_trail) / bessel_trail)**2)
+    # Draw the theoretical circular aperture boundary
+    aperture_circle = plt.Circle((0, 0), radius=radius_mm, fill=False, color='red', linestyle='--', linewidth=2, label='Aperture Boundary')
+    ax.add_patch(aperture_circle)
+    ax.legend(loc="upper right")
+    
+    return fig, actual_elements
+
+def plot_bessel_pattern(D_p, D_aperture, lambda_h):
+    plot_angle = 30
+    theta_deg = np.linspace(-plot_angle, plot_angle, 1000)
+    theta_deg[theta_deg == 0] = 1e-5  # Avoid zero division
+    
+    theta_rad = np.deg2rad(theta_deg)
+    
+    # u = pi * (D / lambda) * sin(theta)
+    u = np.pi * (D_aperture / lambda_h) * np.sin(theta_rad)
+    
+    # f(theta) = Dp + 20*log10(|2*J1(u)/u|)
+    bessel_factor = 20 * np.log10(np.abs(2 * jv(1, u) / u))
+    bessel_pattern = D_p + bessel_factor
     
     fig, ax = plt.subplots(figsize=(6, 4))
-    ax.plot(in_array, bessel_pattern)
+    ax.plot(theta_deg, bessel_pattern, color='indigo')
     ax.set_xlabel('Theta (Degrees)')
     ax.set_ylabel('Directivity (dBi)')
     ax.set_title('Circular Aperture Radiation Pattern (Bessel)')
@@ -108,36 +127,47 @@ def plot_bessel_pattern(D_p, L_hx):
 
 st.set_page_config(page_title="Phased Array Designer", layout="centered")
 st.title("CICAD 2025: Phased Array Problem 2")
+st.markdown("Calculates array parameters based on Potter Horn elements in a circular-aperture hexagonal lattice.")
 
 st.sidebar.header("Design Specifications")
-f_center = st.sidebar.number_input("Center Frequency (GHz)", value=44.5)
-f_margin = st.sidebar.number_input("Freq Margin +/- (GHz)", value=1.0)
-scan_angle = st.sidebar.number_input("Max Scan Angle (deg)", value=9.0)
-gain_min = st.sidebar.number_input("Min Gain over Scan (dBi)", value=40.0)
-taper_db = st.sidebar.number_input("Amplitude Taper (dB)", value=10.0)
-eff_horn = st.sidebar.number_input("Horn Efficiency (%)", value=70.0)
+f_center = st.sidebar.number_input("Center Frequency (GHz)", value=44.5, step=0.1)
+f_margin = st.sidebar.number_input("Freq Margin +/- (GHz)", value=1.0, step=0.1)
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Scan & Constraints")
+scan_angle = st.sidebar.number_input("Max Scan Angle (deg)", value=9.0, step=1.0)
+theta_g = st.sidebar.number_input("Grating Lobe Margin Angle (deg)", value=9.7, step=0.1, help="Use 9.7 for 9° scan, or 7.0 for 6° scan per the text.")
+
+gain_min = st.sidebar.number_input("Min Gain over Scan (dBi)", value=40.0, step=1.0)
+misc_losses = st.sidebar.number_input("Misc Losses (dB)", value=4.0, step=0.1, help="Sum of Ls, GLpe, Im, X (e.g. 0.5 + 0 + 0.5 + 3.0 = 4.0)")
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Element & Aperture")
+taper_db = st.sidebar.number_input("Amplitude Taper (dB)", value=10.0, step=1.0)
+eff_horn = st.sidebar.number_input("Horn Efficiency (%)", value=70.0, step=1.0)
 
 if st.button("Calculate & Plot"):
-    res = calculate_array_params(f_center, f_margin, scan_angle, gain_min, taper_db, eff_horn)
+    res = calculate_array_params(f_center, f_margin, scan_angle, theta_g, gain_min, taper_db, eff_horn, misc_losses)
     
     st.subheader("Calculated Parameters")
-    col1, col2 = st.columns(2)
-    col1.metric("Spacing (\u03bb_high)", f"{res['spacing_lambda_h']:.2f}")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Spacing (d_h)", f"{res['spacing_lambda_h']:.3f} \u03bb_h")
     col1.metric("Element Directivity", f"{res['element_directivity']:.2f} dBi")
-    col2.metric("Required Peak Directivity", f"{res['peak_directivity']:.2f} dBi")
-    col2.metric("Number of Elements", res['num_elements'])
+    
+    col2.metric("Scan Loss", f"{res['scan_loss']:.2f} dB")
+    col2.metric("Required Peak Dir.", f"{res['peak_directivity']:.2f} dBi")
+    
+    col3.metric("Theoretical Elements", f"{res['num_elements_raw']:.1f}")
+    col3.metric("Aperture Diameter", f"{res['D_aperture']*1000:.1f} mm")
     
     st.markdown("---")
     st.subheader("Visualizations")
     
-    # Calculate dimensional footprint for plotting
-    meters_to_in = 39.37
-    spacing_in = res['spacing_meters'] * meters_to_in
-    num_x = math.ceil(math.sqrt(res['num_elements']))
-    L_hx = num_x * res['spacing_lambda_h']
-    
-    fig_layout = plot_hexagonal_lattice(res['num_elements'], spacing_in, "Hexagonal Array Layout")
+    # 1. Hexagonal Array Layout (Circular Aperture)
+    fig_layout, actual_count = plot_hexagonal_lattice_circular(res['D_aperture'], res['spacing_meters'], "Hexagonal Array Layout")
     st.pyplot(fig_layout)
+    st.caption(f"**Actual Elements Fitted in Circular Aperture:** {actual_count}")
     
-    fig_pattern = plot_bessel_pattern(res['peak_directivity'], L_hx)
+    # 2. Bessel Pattern
+    fig_pattern = plot_bessel_pattern(res['peak_directivity'], res['D_aperture'], res['lambda_h'])
     st.pyplot(fig_pattern)
