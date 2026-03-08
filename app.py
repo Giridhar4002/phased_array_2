@@ -357,8 +357,8 @@ def run_design(f_center, f_offset, theta_sm, G_min, taper_dB, eta_e_pct,
 def plot_array_layout(x, y, weights, R, d_m, title="Array Layout"):
     """Scatter plot of element positions coloured by taper weight."""
     fig, ax = plt.subplots(figsize=(7, 7), dpi=110)
-    fig.patch.set_facecolor("#0e1117")
-    ax.set_facecolor("#0e1117")
+    fig.patch.set_facecolor("#ffffff")
+    ax.set_facecolor("#ffffff")
 
     # Aperture circle
     circle = plt.Circle((0, 0), R * 1000, fill=False, edgecolor="#4fc3f7",
@@ -368,20 +368,20 @@ def plot_array_layout(x, y, weights, R, d_m, title="Array Layout"):
     sc = ax.scatter(x * 1000, y * 1000, c=weights, cmap="inferno",
                     s=18, edgecolors="none", zorder=3)
     cbar = fig.colorbar(sc, ax=ax, shrink=0.75, pad=0.04)
-    cbar.set_label("Taper Weight (linear)", color="white", fontsize=10)
-    cbar.ax.yaxis.set_tick_params(color="white")
-    plt.setp(cbar.ax.yaxis.get_ticklabels(), color="white")
+    cbar.set_label("Taper Weight (linear)", color="#111111", fontsize=10)
+    cbar.ax.yaxis.set_tick_params(color="#111111")
+    plt.setp(cbar.ax.yaxis.get_ticklabels(), color="#111111")
 
-    ax.set_xlabel("x  (mm)", color="white", fontsize=11)
-    ax.set_ylabel("y  (mm)", color="white", fontsize=11)
-    ax.set_title(title, color="white", fontsize=13, fontweight="bold")
+    ax.set_xlabel("x  (mm)", color="#111111", fontsize=11)
+    ax.set_ylabel("y  (mm)", color="#111111", fontsize=11)
+    ax.set_title(title, color="#111111", fontsize=13, fontweight="bold")
     ax.set_aspect("equal")
-    ax.tick_params(colors="white")
+    ax.tick_params(colors="#111111")
     for spine in ax.spines.values():
         spine.set_color("#333")
-    ax.legend(loc="upper right", fontsize=9, facecolor="#1a1a2e",
-              edgecolor="#333", labelcolor="white")
-    ax.grid(True, alpha=0.15, color="white")
+    ax.legend(loc="upper right", fontsize=9, facecolor="#ffffff",
+              edgecolor="#bbbbbb", labelcolor="#111111")
+    ax.grid(True, alpha=0.15, color="#bbbbbb")
     fig.tight_layout()
     return fig
 
@@ -402,8 +402,8 @@ def plot_radiation_pattern(x_pos, y_pos, weights, lambda_0, Dp_dBi,
     AF_abs_dB = AF_norm_dB + Dp_dBi
 
     fig, ax = plt.subplots(figsize=(9, 5), dpi=110)
-    fig.patch.set_facecolor("#0e1117")
-    ax.set_facecolor("#0e1117")
+    fig.patch.set_facecolor("#ffffff")
+    ax.set_facecolor("#ffffff")
 
     ax.plot(theta_range, AF_abs_dB, color="#00e5ff", linewidth=1.2,
             label="φ = 0° cut")
@@ -413,15 +413,15 @@ def plot_radiation_pattern(x_pos, y_pos, weights, lambda_0, Dp_dBi,
                label="−3 dB")
     ax.set_ylim(Dp_dBi - 50, Dp_dBi + 3)
     ax.set_xlim(-30, 30)
-    ax.set_xlabel("θ  (degrees)", color="white", fontsize=11)
-    ax.set_ylabel("Directivity  (dBi)", color="white", fontsize=11)
-    ax.set_title(title, color="white", fontsize=13, fontweight="bold")
-    ax.tick_params(colors="white")
+    ax.set_xlabel("θ  (degrees)", color="#111111", fontsize=11)
+    ax.set_ylabel("Directivity  (dBi)", color="#111111", fontsize=11)
+    ax.set_title(title, color="#111111", fontsize=13, fontweight="bold")
+    ax.tick_params(colors="#111111")
     for spine in ax.spines.values():
         spine.set_color("#333")
-    ax.legend(fontsize=9, facecolor="#1a1a2e", edgecolor="#333",
-              labelcolor="white")
-    ax.grid(True, alpha=0.15, color="white")
+    ax.legend(fontsize=9, facecolor="#ffffff", edgecolor="#bbbbbb",
+              labelcolor="#111111")
+    ax.grid(True, alpha=0.15, color="#bbbbbb")
     fig.tight_layout()
     return fig
 
@@ -439,22 +439,22 @@ def plot_normalized_pattern(x_pos, y_pos, weights, lambda_0, Dp_dBi,
         AF_norm_dB = np.zeros_like(AF_mag)
 
     fig, ax = plt.subplots(figsize=(9, 5), dpi=110)
-    fig.patch.set_facecolor("#0e1117")
-    ax.set_facecolor("#0e1117")
+    fig.patch.set_facecolor("#ffffff")
+    ax.set_facecolor("#ffffff")
 
     ax.plot(theta_range, AF_norm_dB, color="#ce93d8", linewidth=1.2)
     ax.axhline(y=-3, color="#66bb6a", linestyle="--", linewidth=0.8, label="−3 dB")
     ax.set_ylim(-50, 3)
     ax.set_xlim(-30, 30)
-    ax.set_xlabel("θ  (degrees)", color="white", fontsize=11)
-    ax.set_ylabel("Normalized Gain  (dB)", color="white", fontsize=11)
-    ax.set_title(title, color="white", fontsize=13, fontweight="bold")
-    ax.tick_params(colors="white")
+    ax.set_xlabel("θ  (degrees)", color="#111111", fontsize=11)
+    ax.set_ylabel("Normalized Gain  (dB)", color="#111111", fontsize=11)
+    ax.set_title(title, color="#111111", fontsize=13, fontweight="bold")
+    ax.tick_params(colors="#111111")
     for spine in ax.spines.values():
         spine.set_color("#333")
-    ax.legend(fontsize=9, facecolor="#1a1a2e", edgecolor="#333",
-              labelcolor="white")
-    ax.grid(True, alpha=0.15, color="white")
+    ax.legend(fontsize=9, facecolor="#ffffff", edgecolor="#bbbbbb",
+              labelcolor="#111111")
+    ax.grid(True, alpha=0.15, color="#bbbbbb")
     fig.tight_layout()
     return fig
 
@@ -465,22 +465,22 @@ def plot_efficiency_vs_taper():
     eff = np.array([taper_efficiency(t) * 100 for t in taper_range])
 
     fig, ax = plt.subplots(figsize=(7, 4), dpi=110)
-    fig.patch.set_facecolor("#0e1117")
-    ax.set_facecolor("#0e1117")
+    fig.patch.set_facecolor("#ffffff")
+    ax.set_facecolor("#ffffff")
 
     ax.plot(taper_range, eff, color="#ffd54f", linewidth=1.5)
     ax.axvline(x=10, color="#ef5350", linestyle="--", linewidth=0.8,
                label="10 dB taper")
-    ax.set_xlabel("Edge Illumination Taper  (dB)", color="white", fontsize=11)
-    ax.set_ylabel("Array Efficiency  (%)", color="white", fontsize=11)
-    ax.set_title("Array Efficiency vs Illumination Taper", color="white",
+    ax.set_xlabel("Edge Illumination Taper  (dB)", color="#111111", fontsize=11)
+    ax.set_ylabel("Array Efficiency  (%)", color="#111111", fontsize=11)
+    ax.set_title("Array Efficiency vs Illumination Taper", color="#111111",
                  fontsize=13, fontweight="bold")
-    ax.tick_params(colors="white")
+    ax.tick_params(colors="#111111")
     for spine in ax.spines.values():
         spine.set_color("#333")
-    ax.legend(fontsize=9, facecolor="#1a1a2e", edgecolor="#333",
-              labelcolor="white")
-    ax.grid(True, alpha=0.15, color="white")
+    ax.legend(fontsize=9, facecolor="#ffffff", edgecolor="#bbbbbb",
+              labelcolor="#111111")
+    ax.grid(True, alpha=0.15, color="#bbbbbb")
     fig.tight_layout()
     return fig
 
@@ -498,16 +498,16 @@ st.set_page_config(
 # ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* dark metric cards */
+    /* light metric cards with dark text */
     div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 1px solid #0f3460;
+        background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+        border: 1px solid #dddddd;
         border-radius: 10px;
         padding: 12px 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     }
-    /* ensure all text on dark cards is white */
     div[data-testid="stMetric"] * {
-        color: #ffffff !important;
+        color: #111111 !important;
     }
     .block-container { padding-top: 1.5rem; }
 </style>
