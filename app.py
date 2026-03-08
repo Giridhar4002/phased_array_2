@@ -839,6 +839,4 @@ April 2020.
 st.markdown("---")
 st.caption(
     "CICAD 2025 Assignment — Phased Array Problem 2  |  "
-    "Equations: Rao & Ostroot, IEEE AP-Mag, Apr 2020  |  "
-    "Software: Kotta & Gupta, WAMS 2023/2024"
-)
+  )
