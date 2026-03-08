@@ -7,9 +7,6 @@ Problem 2: Hexagonal-grid phased array at 44.5 GHz ± 1 GHz
   • ±9° scan, 40 dBi minimum gain over coverage
   • Part D: complexity reduction at ±6° scan
 
-Based on design equations from:
-  S. K. Rao & C. Ostroot, "Design Principles and Guidelines for Phased Array
-  and Reflector Antennas," IEEE AP Magazine, Apr. 2020.
 ================================================================================
 """
 
@@ -26,7 +23,7 @@ import math
 C_LIGHT = 0.299792458  # speed of light in m/ns  →  gives λ in metres when f in GHz
 PI = np.pi
 
-# Radiating-element beamwidth constant A (degrees) — Eq. (7) in Rao 2020
+# Radiating-element beamwidth constant A (degrees) — Eq. (7)
 ELEMENT_BW_CONSTANTS = {
     "High-efficiency Multimode Horn": 63,
     "Potter Horn": 70,
@@ -51,7 +48,7 @@ def wavelength_m(freq_ghz: float) -> float:
 def taper_efficiency(T_dB: float) -> float:
     """
     Aperture-illumination efficiency η for parabolic-on-pedestal taper.
-    Eq. (10) in Rao 2020:  η = 75 · (1+T)² / (1+T+T²)   [%]
+    Eq. (10):  η = 75 · (1+T)² / (1+T+T²)   [%]
     where T = 10^(−taper_dB / 20)  is the linear pedestal voltage.
     Returns fractional efficiency (0–1).
     """
@@ -63,7 +60,7 @@ def taper_efficiency(T_dB: float) -> float:
 def hex_element_spacing(lambda_h: float, theta_sm_deg: float,
                         theta_G_deg: float) -> float:
     """
-    Max element spacing for hexagonal lattice — Eq. (2) in Rao 2020:
+    Max element spacing for hexagonal lattice — Eq. (2):
         d_h / λ_h  ≤  1.1547 / (sin θ_sm + sin θ_G)
     Returns spacing in metres.
     """
@@ -116,7 +113,7 @@ def scan_loss_dB(theta_sm_deg: float, spacing_norm: float,
 def grating_lobe_angle(theta_sm_deg: float) -> float:
     """
     Select grating-lobe placement just outside scan region.
-    Rules from Kotta & Gupta (WAMS 2023):
+    Design rules used:
         θ_sm ≤ 15°  → θ_G = θ_sm + 1
         θ_sm ≤ 45°  → θ_G = θ_sm + 2
         θ_sm > 60°  → θ_G = θ_sm + 5
@@ -570,7 +567,7 @@ res = run_design(f_center, f_offset, theta_sm, G_min, taper_dB, eta_e_pct,
 st.subheader("Part A — Required Peak Directivity")
 
 st.markdown(
-    "Using **Eq. (5)** from Rao & Ostroot (2020):\n\n"
+    "Using **Eq. (5)**:\n\n"
     r"$$D_p = G_{\min} + L_s + SL + GL_{pe} + T_L + X + I_m$$"
 )
 
@@ -797,7 +794,7 @@ st.info(
 st.markdown("---")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION — Reference Equations
+# SECTION — Key Design Equations
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 st.subheader("📚  Key Design Equations")
 st.markdown(r"""
@@ -830,13 +827,8 @@ $$\theta_3 = A\,\frac{\lambda_h}{d_e}$$
 $$\eta = 75\,\frac{(1+T)^2}{1+T+T^2}\;\;\%$$
 
 ---
-*Reference:* S. K. Rao & C. Ostroot, "Design Principles and Guidelines for
-Phased Array and Reflector Antennas," IEEE Antennas & Propagation Magazine,
-April 2020.
     """)
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("---")
-st.caption(
-    "CICAD 2025 Assignment — Phased Array Problem 2  |  "
-  )
+st.caption("CICAD 2025 Assignment — Phased Array Problem 2")
