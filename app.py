@@ -1,173 +1,221 @@
 import streamlit as st
-import math
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 from scipy.special import jv
 
-def calculate_array_params(f_center, f_margin, scan_angle, theta_g, gain_min, taper_db, eff_horn, misc_losses):
-    # Frequencies in GHz -> Wavelengths in meters
-    c = 0.299792458
-    f_high = f_center + f_margin
-    f_low = f_center - f_margin
-    lambda_h = c / f_high
-    lambda_l = c / f_low
-    
-    # 1. Element Spacing (Hexagonal) using highest frequency to avoid grating lobes
-    denom = math.sin(math.radians(scan_angle)) + math.sin(math.radians(theta_g))
-    spacing_lambda_h = 1.1547 / denom
-    spacing_meters = spacing_lambda_h * lambda_h
-    
-    # Spacing in terms of lowest frequency wavelength for directivity
-    spacing_lambda_l = spacing_meters / lambda_l
-    
-    # 2. Element Directivity (De)
-    element_eff = eff_horn / 100.0
-    d_e = 10 * math.log10(element_eff * 4 * math.pi * (spacing_lambda_l**2))
-    
-    # 3. Peak Directivity Required (Dp)
-    # Taper efficiency calculation
-    T = 10**(-taper_db / 20.0)
-    eff_taper = 0.75 * ((1 + T)**2 / (1 + T + T**2))
-    taper_loss = -10 * math.log10(eff_taper)
-    
-    # Scan loss calculation (Potter horn constant A = 70)
-    theta_3 = 70.0 / spacing_lambda_h
-    scan_loss = 3 * (scan_angle / (0.5 * theta_3))**2
-    
-    # Total required peak directivity
-    peak_directivity = gain_min + taper_loss + misc_losses + scan_loss
-    
-    # 4. Number of Elements (Raw theoretical)
-    num_elements_raw = 10**(0.1 * peak_directivity - 0.1 * d_e)
-    
-    # 5. Aperture Diameter (D_aperture)
-    # Area of hex unit cell = (sqrt(3)/2) * dh^2. 
-    # For a circular aperture, Area = pi * (D/2)^2 = N * Area_cell
-    D_aperture = math.sqrt(4 * num_elements_raw / (math.pi * 1.1547)) * spacing_meters
-    
-    return {
-        "lambda_h": lambda_h,
-        "spacing_lambda_h": spacing_lambda_h,
-        "spacing_meters": spacing_meters,
-        "element_directivity": d_e,
-        "taper_loss": taper_loss,
-        "scan_loss": scan_loss,
-        "peak_directivity": peak_directivity,
-        "num_elements_raw": num_elements_raw,
-        "D_aperture": D_aperture
-    }
+# --- Functions for Antenna Calculations ---
+def calculate_reflector_geometry(D, f_D):
+    F = f_D * D
+    # Subtended half-angle at the edge of the reflector
+    theta_0_rad = 2 * math.atan(1 / (4 * f_D))
+    theta_0_deg = math.degrees(theta_0_rad)
+    return F, theta_0_deg
 
-def plot_hexagonal_lattice_circular(D_aperture, spacing_m, plot_title):
-    fig, ax = plt.subplots(figsize=(6, 6))
-    ax.set_aspect('equal')
-    ax.set_title(plot_title)
-    ax.set_xlabel("X Position (mm)")
-    ax.set_ylabel("Y Position (mm)")
+def calculate_feed_array(frequency_GHz, spacing_lambda, element_eff):
+    c = 3e8
+    f = frequency_GHz * 1e9
+    wavelength = c / f
     
-    radius_m = D_aperture / 2.0
-    spacing_mm = spacing_m * 1000.0
-    radius_mm = radius_m * 1000.0
+    # 2x2 Array physical size
+    # Total effective size is roughly 2 * spacing_lambda
+    array_size_lambda = 2 * spacing_lambda
     
-    # Estimate max indices to cover the circle
-    max_idx = int(math.ceil(radius_mm / spacing_mm)) * 2
-    ax.set_ylim([-radius_mm * 1.2, radius_mm * 1.2])
-    ax.set_xlim([-radius_mm * 1.2, radius_mm * 1.2])
+    # Half-power beamwidth of the array feed (using patch element factor ~ 58 degrees)
+    # HPBW ~ 58 / (Aperture in wavelengths)
+    theta_3dB_feed = 58 / array_size_lambda
     
-    points_x, points_y = [], []
+    # Directivity of 2x2 Array
+    # De = 10 * log10( (4*pi / lambda^2) * physical_area * efficiency )
+    # Unit cell area per element = spacing^2
+    total_area_lambda2 = 4 * (spacing_lambda**2)
+    directivity_linear = 4 * math.pi * total_area_lambda2 * element_eff
+    directivity_dBi = 10 * math.log10(directivity_linear)
     
-    # Generate hexagonal grid points
-    for q in range(-max_idx, max_idx + 1):
-        for r in range(-max_idx, max_idx + 1):
-            x = spacing_mm * (math.sqrt(3) * q + math.sqrt(3)/2 * r)
-            y = spacing_mm * (3/2 * r)
-            
-            # Clip elements outside the circular aperture boundary
-            if math.sqrt(x**2 + y**2) <= radius_mm:
-                points_x.append(x)
-                points_y.append(y)
-                
-    actual_elements = len(points_x)
+    return wavelength, theta_3dB_feed, directivity_dBi
+
+def calculate_efficiencies(theta_0_deg, theta_3dB_feed):
+    # Edge illumination taper in dB using Gaussian beam approximation
+    T_dB = 12 * (theta_0_deg / theta_3dB_feed)**2
     
-    # Draw elements
-    for i in range(actual_elements):
-        circle = plt.Circle((points_x[i], points_y[i]), radius=spacing_mm/2 * 0.9, fill=True, color='#1f77b4', alpha=0.8)
-        ax.add_patch(circle)
+    # Spillover efficiency
+    # eta_s = 1 - 10^(-T_dB / 10)
+    eta_s = 1 - 10**(-T_dB / 10)
+    
+    # Illumination efficiency (approximate empirical formula for parabolic taper)
+    # Alternatively using typical Gaussian beam mapping:
+    T_linear = 10**(T_dB / 20)
+    # Using classical approximation for illumination efficiency
+    if T_dB > 0:
+        eta_i = ( (1 - 10**(-T_dB/20))**2 ) / ( (T_dB/20) * math.log(10) )
+    else:
+        eta_i = 1.0
         
-    ax.scatter(points_x, points_y, color='black', s=5, zorder=3)
-    
-    # Draw the theoretical circular aperture boundary
-    aperture_circle = plt.Circle((0, 0), radius=radius_mm, fill=False, color='red', linestyle='--', linewidth=2, label='Aperture Boundary')
-    ax.add_patch(aperture_circle)
-    ax.legend(loc="upper right")
-    
-    return fig, actual_elements
+    eta_ap = eta_s * eta_i
+    return T_dB, eta_s, eta_i, eta_ap
 
-def plot_bessel_pattern(D_p, D_aperture, lambda_h):
-    plot_angle = 30
-    theta_deg = np.linspace(-plot_angle, plot_angle, 1000)
-    theta_deg[theta_deg == 0] = 1e-5  # Avoid zero division
+def calculate_secondary_beam(D, wavelength, eta_ap, T_dB):
+    # Peak Directivity
+    D_lambda = D / wavelength
+    peak_directivity_linear = eta_ap * (math.pi * D_lambda)**2
+    peak_directivity_dBi = 10 * math.log10(peak_directivity_linear)
     
-    theta_rad = np.deg2rad(theta_deg)
+    # 3dB Beamwidth (Secondary) - varies slightly with taper. 
+    # Usually around 70 * (lambda / D) for practical tapers.
+    beamwidth_factor = 58 + 0.8 * T_dB if T_dB < 20 else 74 # Empirical relation
+    theta_3dB_sec = beamwidth_factor * (wavelength / D)
     
-    # u = pi * (D / lambda) * sin(theta)
-    u = np.pi * (D_aperture / lambda_h) * np.sin(theta_rad)
-    
-    # f(theta) = Dp + 20*log10(|2*J1(u)/u|)
-    bessel_factor = 20 * np.log10(np.abs(2 * jv(1, u) / u))
-    bessel_pattern = D_p + bessel_factor
-    
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.plot(theta_deg, bessel_pattern, color='indigo')
-    ax.set_xlabel('Theta (Degrees)')
-    ax.set_ylabel('Directivity (dBi)')
-    ax.set_title('Circular Aperture Radiation Pattern (Bessel)')
-    ax.grid(True, linestyle='--', alpha=0.6)
-    ax.set_ylim([D_p - 40, D_p + 5])
-    return fig
+    return peak_directivity_dBi, theta_3dB_sec
 
-st.set_page_config(page_title="Phased Array Designer", layout="centered")
-st.title("CICAD 2025: Phased Array Problem 2")
-st.markdown("Calculates array parameters based on Potter Horn elements in a circular-aperture hexagonal lattice.")
+def plot_secondary_pattern(D, wavelength, T_dB, peak_dir):
+    theta = np.linspace(-3, 3, 1000)
+    theta_rad = np.radians(theta)
+    
+    # Universal parameter u
+    u = math.pi * (D / wavelength) * np.sin(theta_rad)
+    
+    # Uniform circular aperture pattern modified by taper (approximate with Bessel)
+    # For a purely uniform aperture: E(u) = 2 * J1(u)/u
+    # We apply a simulated sidelobe reduction based on taper
+    # SLL approx = -17.6 dB for uniform, drops ~ 0.5-0.7 dB per dB of taper
+    
+    epsilon = 1e-9
+    u = np.where(u == 0, epsilon, u)
+    pattern = 20 * np.log10(np.abs(2 * jv(1, u) / u))
+    
+    # Adjust sidelobes empirically based on taper
+    sll_reduction = T_dB * 0.7
+    pattern_adjusted = np.where(pattern < -3, pattern - (sll_reduction * (np.abs(pattern)/20)), pattern)
+    
+    normalized_pattern = peak_dir + pattern_adjusted
+    return theta, normalized_pattern
 
-st.sidebar.header("Design Specifications")
-f_center = st.sidebar.number_input("Center Frequency (GHz)", value=44.5, step=0.1)
-f_margin = st.sidebar.number_input("Freq Margin +/- (GHz)", value=1.0, step=0.1)
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("Scan & Constraints")
-scan_angle = st.sidebar.number_input("Max Scan Angle (deg)", value=9.0, step=1.0)
-theta_g = st.sidebar.number_input("Grating Lobe Margin Angle (deg)", value=9.7, step=0.1, help="Use 9.7 for 9° scan, or 7.0 for 6° scan per the text.")
+# --- STREAMLIT UI ---
+st.set_page_config(page_title="Reflector & Phased Array Analyzer", layout="wide")
+st.title("Center-Fed Reflector & Phased Array Analyzer")
+st.markdown("Solution for CICAD 2025 Assignment Problem")
 
-gain_min = st.sidebar.number_input("Min Gain over Scan (dBi)", value=40.0, step=1.0)
-misc_losses = st.sidebar.number_input("Misc Losses (dB)", value=4.0, step=0.1, help="Sum of Ls, GLpe, Im, X (e.g. 0.5 + 0 + 0.5 + 3.0 = 4.0)")
+# Inputs Setup
+st.sidebar.header("System Parameters")
+D = st.sidebar.number_input("Reflector Diameter (m)", value=2.5)
+f_D = st.sidebar.number_input("f/D Ratio", value=0.9)
+freq = st.sidebar.number_input("Operating Frequency (GHz)", value=12.0)
+grid_elements = st.sidebar.text("Feed Array: 2x2 Patch")
+spacing = st.sidebar.number_input("Initial Element Spacing (lambda)", value=0.5)
+eff_patch = st.sidebar.number_input("Patch Efficiency (%)", value=90.0) / 100.0
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("Element & Aperture")
-taper_db = st.sidebar.number_input("Amplitude Taper (dB)", value=10.0, step=1.0)
-eff_horn = st.sidebar.number_input("Horn Efficiency (%)", value=70.0, step=1.0)
+F, theta_0 = calculate_reflector_geometry(D, f_D)
+wavelength, theta_3dB_feed, dir_feed = calculate_feed_array(freq, spacing, eff_patch)
+T_dB, eta_s, eta_i, eta_ap = calculate_efficiencies(theta_0, theta_3dB_feed)
+peak_dir_sec, theta_3dB_sec = calculate_secondary_beam(D, wavelength, eta_ap, T_dB)
 
-if st.button("Calculate & Plot"):
-    res = calculate_array_params(f_center, f_margin, scan_angle, theta_g, gain_min, taper_db, eff_horn, misc_losses)
+st.divider()
+
+# --- Part A: Geometry Sketch ---
+st.header("Part A: Reflector and Feed Configuration Sketch")
+fig_a, ax_a = plt.subplots(figsize=(6, 4))
+y = np.linspace(-D/2, D/2, 100)
+x = (y**2) / (4*F) # Parabola equation
+
+ax_a.plot(x, y, 'b', linewidth=2, label="Reflector")
+ax_a.plot(F, 0, 'ro', markersize=8, label="2x2 Array Feed")
+ax_a.plot([F, 0], [0, D/2], 'k--', alpha=0.5)
+ax_a.plot([F, 0], [0, -D/2], 'k--', alpha=0.5)
+
+ax_a.annotate(f"D = {D}m", xy=(0, D/2), xytext=(-0.5, D/2.2), arrowprops=dict(arrowstyle="->"))
+ax_a.annotate(f"F = {F:.2f}m", xy=(F/2, 0), xytext=(F/2, -0.3))
+ax_a.annotate(rf"$\theta_0$ = {theta_0:.1f}°", xy=(F, 0), xytext=(F-0.4, 0.2))
+
+ax_a.set_xlim(-0.2, F + 0.5)
+ax_a.set_ylim(-D/2 - 0.2, D/2 + 0.2)
+ax_a.set_xlabel("Optical Axis (m)")
+ax_a.set_ylabel("Aperture (m)")
+ax_a.set_title("Center Fed Parabolic Reflector")
+ax_a.legend()
+ax_a.grid(True)
+st.pyplot(fig_a)
+
+# --- Part B & C & D: Calculations ---
+col1, col2 = st.columns(2)
+with col1:
+    st.header("Part B: Phased Array Feed")
+    st.write(f"**Element Spacing:** {spacing} $\lambda$")
+    st.write(f"**Array Directivity:** {dir_feed:.2f} dBi")
+    st.write(f"**Array 3-dB Beamwidth:** {theta_3dB_feed:.2f}°")
+    st.write(f"**Illumination Taper at Edges ($T$):** {T_dB:.2f} dB")
     
-    st.subheader("Calculated Parameters")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Spacing (d_h)", f"{res['spacing_lambda_h']:.3f} \u03bb_h")
-    col1.metric("Element Directivity", f"{res['element_directivity']:.2f} dBi")
-    
-    col2.metric("Scan Loss", f"{res['scan_loss']:.2f} dB")
-    col2.metric("Required Peak Dir.", f"{res['peak_directivity']:.2f} dBi")
-    
-    col3.metric("Theoretical Elements", f"{res['num_elements_raw']:.1f}")
-    col3.metric("Aperture Diameter", f"{res['D_aperture']*1000:.1f} mm")
-    
-    st.markdown("---")
-    st.subheader("Visualizations")
-    
-    # 1. Hexagonal Array Layout (Circular Aperture)
-    fig_layout, actual_count = plot_hexagonal_lattice_circular(res['D_aperture'], res['spacing_meters'], "Hexagonal Array Layout")
-    st.pyplot(fig_layout)
-    st.caption(f"**Actual Elements Fitted in Circular Aperture:** {actual_count}")
-    
-    # 2. Bessel Pattern
-    fig_pattern = plot_bessel_pattern(res['peak_directivity'], res['D_aperture'], res['lambda_h'])
-    st.pyplot(fig_pattern)
+with col2:
+    st.header("Part C & D: Reflector Secondary Beam")
+    st.write(f"**Spillover Efficiency:** {eta_s*100:.1f}%")
+    st.write(f"**Illumination Efficiency:** {eta_i*100:.1f}%")
+    st.write(f"**Total Aperture Efficiency:** {eta_ap*100:.1f}%")
+    st.write(f"**Peak Secondary Directivity:** {peak_dir_sec:.2f} dBi")
+    st.write(f"**Secondary 3-dB Beamwidth:** {theta_3dB_sec:.3f}°")
+
+st.divider()
+
+# --- Part E: Secondary Beam Patterns ---
+st.header("Part E: Reflector Secondary Beam Pattern")
+
+theta_angles, pattern = plot_secondary_pattern(D, wavelength, T_dB, peak_dir_sec)
+
+# Find first side lobe level (Approximate logic)
+peaks, _ = scipy.signal.find_peaks(pattern) if 'scipy.signal' in sys.modules else ([], [])
+# Fallback to standard analytical uniform circular aperture FSLL - adjusted for taper
+fsll_relative = -17.6 - (T_dB * 0.5)
+fsll_absolute = peak_dir_sec + fsll_relative
+
+fig_e, ax_e = plt.subplots(figsize=(8, 4))
+ax_e.plot(theta_angles, pattern, 'b-', label='Secondary Pattern')
+ax_e.axhline(peak_dir_sec - 3, color='r', linestyle='--', label='3 dB Beamwidth limit')
+ax_e.axhline(fsll_absolute, color='g', linestyle='--', label=f'First SLL (~{fsll_relative:.1f} dBc)')
+ax_e.set_xlim(-1.5, 1.5)
+ax_e.set_ylim(max(0, peak_dir_sec - 50), peak_dir_sec + 2)
+ax_e.set_xlabel("Theta (degrees)")
+ax_e.set_ylabel("Directivity (dBi)")
+ax_e.set_title("Approximate Reflector Secondary Pattern")
+ax_e.grid(True)
+ax_e.legend()
+st.pyplot(fig_e)
+
+st.markdown("""
+**Suggestions to reduce the First Side Lobe Level (FSLL):**
+1. **Increase the Illumination Taper:** By increasing the taper (e.g., from ~3.5 dB to ~10-12 dB), less power hits the edges of the reflector, smoothing the aperture field distribution and drastically lowering sidelobes.
+2. **Increase Feed Array Spacing or Size:** Making the feed array physically larger (e.g., increasing spacing to $0.7\lambda$) makes the primary beam narrower, naturally increasing the edge taper on the reflector.
+""")
+
+st.divider()
+
+# --- Part F: Replacing Element Spacing ---
+st.header("Part F: Changing Element Spacing to 0.7 $\lambda$")
+
+spacing_new = 0.7
+_, theta_3dB_feed_new, dir_feed_new = calculate_feed_array(freq, spacing_new, eff_patch)
+T_dB_new, eta_s_new, eta_i_new, eta_ap_new = calculate_efficiencies(theta_0, theta_3dB_feed_new)
+peak_dir_sec_new, theta_3dB_sec_new = calculate_secondary_beam(D, wavelength, eta_ap_new, T_dB_new)
+
+col3, col4 = st.columns(2)
+with col3:
+    st.subheader("Original (0.5 $\lambda$)")
+    st.write(f"- **Feed HPBW:** {theta_3dB_feed:.1f}°")
+    st.write(f"- **Edge Taper:** {T_dB:.2f} dB")
+    st.write(f"- **Aperture Eff:** {eta_ap*100:.1f}%")
+    st.write(f"- **Secondary Peak Directivity:** {peak_dir_sec:.2f} dBi")
+with col4:
+    st.subheader("New (0.7 $\lambda$)")
+    st.write(f"- **Feed HPBW:** {theta_3dB_feed_new:.1f}°")
+    st.write(f"- **Edge Taper:** {T_dB_new:.2f} dB")
+    st.write(f"- **Aperture Eff:** {eta_ap_new*100:.1f}%")
+    st.write(f"- **Secondary Peak Directivity:** {peak_dir_sec_new:.2f} dBi")
+
+st.markdown("""
+**Conceptual Analysis:**
+When element spacing increases from 0.5 $\lambda$ to 0.7 $\lambda$, the physical aperture of the feed array increases.
+* **Feed Array Beamwidth (Primary Beam):** Decreases (narrows).
+* **Illumination Taper at Edge:** **Increases**. A narrower feed beam means less power hits the edges of the reflector.
+* **Spillover Efficiency:** **Increases** because less energy is spilling past the reflector edges.
+* **Illumination Efficiency:** **Decreases** because the reflector is now under-illuminated (the energy is concentrated too much in the center).
+* **First Side Lobe Level (Secondary Beam):** **Decreases (Improves)** due to the heavier amplitude taper across the reflector aperture.
+* **Secondary Beamwidth:** Will **increase slightly** as the effective radiating area of the reflector shrinks towards the center.
+""")
