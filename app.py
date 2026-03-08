@@ -505,8 +505,9 @@ st.markdown("""
         border-radius: 10px;
         padding: 12px 16px;
     }
-    div[data-testid="stMetric"] label {
-        color: #4fc3f7 !important;
+    /* ensure all text on dark cards is white */
+    div[data-testid="stMetric"] * {
+        color: #ffffff !important;
     }
     .block-container { padding-top: 1.5rem; }
 </style>
