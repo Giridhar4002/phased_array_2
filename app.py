@@ -563,249 +563,243 @@ st.markdown("---")
 res = run_design(f_center, f_offset, theta_sm, G_min, taper_dB, eta_e_pct,
                  element_name, L_s, GL_pe, X, I_m)
 
-# ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_a, tab_b, tab_c, tab_d, tab_ref = st.tabs([
-    "🅰️  Peak Directivity",
-    "🅱️  Spacing & Elements",
-    "🅲  Layout & Patterns",
-    "🅳  Complexity Reduction",
-    "📚  Reference Equations",
-])
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SECTION A — Peak Directivity
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+st.subheader("Part A — Required Peak Directivity")
+
+st.markdown(
+    "Using **Eq. (5)** from Rao & Ostroot (2020):\n\n"
+    r"$$D_p = G_{\min} + L_s + SL + GL_{pe} + T_L + X + I_m$$"
+)
+
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("λ_min (mm)", f"{res['lambda_h_mm']:.3f}")
+c2.metric("λ_max (mm)", f"{res['lambda_l_mm']:.3f}")
+c3.metric("λ_center (mm)", f"{res['lambda_c_mm']:.3f}")
+c4.metric("Grating Lobe θ_G", f"{res['theta_G']:.1f}°")
+
+st.markdown("---")
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Taper Efficiency η_taper", f"{res['eta_taper']*100:.2f} %")
+c2.metric("Taper Loss T_L", f"{res['TL_dB']:.2f} dB")
+c3.metric("Scan Loss SL", f"{res['SL_dB']:.2f} dB")
+
+st.markdown("---")
+
+st.markdown("### ✅  Required Peak Directivity")
+c1, c2 = st.columns(2)
+c1.metric("D_p (required)", f"{res['Dp_dBi']:.2f} dBi")
+c2.metric("Breakdown",
+          f"{G_min:.1f} + {L_s:.1f} + {res['SL_dB']:.2f} + "
+          f"{GL_pe:.1f} + {res['TL_dB']:.2f} + {X:.1f} + {I_m:.1f} dB")
+
+st.info(
+    f"To achieve **{G_min:.0f} dBi** minimum gain at the ±{theta_sm:.0f}° scan edge "
+    f"with a {taper_dB:.0f} dB taper and {eta_e_pct:.0f}% element efficiency, "
+    f"the array peak boresight directivity must be at least **{res['Dp_dBi']:.2f} dBi**."
+)
+
+st.markdown("---")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# TAB A — Peak Directivity
+# SECTION B — Spacing & Elements
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-with tab_a:
-    st.subheader("Part A — Required Peak Directivity")
+st.subheader("Part B — Element Spacing, Element Gain & Number of Elements")
 
-    st.markdown(
-        "Using **Eq. (5)** from Rao & Ostroot (2020):\n\n"
-        r"$$D_p = G_{\min} + L_s + SL + GL_{pe} + T_L + X + I_m$$"
-    )
+st.markdown(
+    "**Hexagonal lattice spacing** — Eq. (2):\n\n"
+    r"$$\frac{d_h}{\lambda_h} \leq \frac{1.1547}{\sin\theta_{sm} + \sin\theta_G}$$"
+)
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("λ_min (mm)", f"{res['lambda_h_mm']:.3f}")
-    c2.metric("λ_max (mm)", f"{res['lambda_l_mm']:.3f}")
-    c3.metric("λ_center (mm)", f"{res['lambda_c_mm']:.3f}")
-    c4.metric("Grating Lobe θ_G", f"{res['theta_G']:.1f}°")
+c1, c2, c3 = st.columns(3)
+c1.metric("d / λ_h", f"{res['d_hex_norm']:.4f}")
+c2.metric("d (mm)", f"{res['d_hex_mm']:.3f}")
+c3.metric("Unit-cell area (mm²)", f"{res['A_e_mm2']:.3f}")
 
-    st.markdown("---")
+st.markdown("---")
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Element Directivity D_e", f"{res['De_dBi']:.2f} dBi")
+c2.metric("Element Gain G_e", f"{res['De_dBi'] - 10*math.log10(1/res['eta_e']):.2f} dBi"
+          if res['eta_e'] > 0 else "—")
+c3.metric("Element 3-dB BW θ₃", f"{res['theta_3_element']:.2f}°")
+
+st.markdown("---")
+
+c1, c2, c3 = st.columns(3)
+c1.metric("N (calculated)", f"{res['N_raw']:.1f}")
+c2.metric("N (rounded up)", f"{res['N']}")
+c3.metric("N (placed in grid)", f"{res['N_placed']}")
+
+st.markdown("---")
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Peak Directivity (placed)", f"{res['Dp_placed_dBi']:.2f} dBi")
+c2.metric("Directivity at scan edge", f"{res['Dp_placed_dBi'] - res['SL_dB']:.2f} dBi")
+c3.metric("Aperture diameter",
+          f"{res['diameter_circ_m']*1000:.1f} mm  ({res['diameter_circ_lambda']:.1f}λ)")
+
+st.markdown("---")
+
+c1, c2 = st.columns(2)
+c1.metric("Boresight Grating Lobe", f"{res['boresight_GL_deg']:.2f}°")
+c2.metric("Grating Lobe at scan edge", f"{res['scan_GL_deg']:.2f}°")
+
+st.success(
+    f"A hexagonal array of **{res['N_placed']} elements** with "
+    f"**d = {res['d_hex_mm']:.3f} mm** ({res['d_hex_norm']:.3f}λ) spacing "
+    f"fits inside a circular aperture of **{res['diameter_circ_m']*1000:.1f} mm** diameter."
+)
+
+st.markdown("---")
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SECTION C — Layout & Patterns
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+st.subheader("Part C — Array Layout & Radiation Patterns")
+
+col1, col2 = st.columns(2)
+with col1:
+    fig_layout = plot_array_layout(
+        res["x_pos"], res["y_pos"], res["weights"], res["R_circ"],
+        res["d_hex_m"],
+        title=f"Hexagonal Array Layout  ({res['N_placed']} elements)")
+    st.pyplot(fig_layout, use_container_width=True)
+
+with col2:
+    fig_eff = plot_efficiency_vs_taper()
+    st.pyplot(fig_eff, use_container_width=True)
+
+st.markdown("---")
+
+st.markdown("#### Radiation Pattern (φ = 0° cut)")
+fig_pat = plot_radiation_pattern(
+    res["x_pos"], res["y_pos"], res["weights"],
+    res["lambda_c"], res["Dp_placed_dBi"],
+    title=f"Array Factor — {res['N_placed']} elements, {taper_dB:.0f} dB taper")
+st.pyplot(fig_pat, use_container_width=True)
+
+st.markdown("#### Normalized Pattern")
+fig_norm = plot_normalized_pattern(
+    res["x_pos"], res["y_pos"], res["weights"],
+    res["lambda_c"], res["Dp_placed_dBi"],
+    title="Normalized Array Radiation Pattern")
+st.pyplot(fig_norm, use_container_width=True)
+
+st.markdown("---")
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SECTION D — Complexity Reduction
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+st.subheader("Part D — Complexity Reduction with Reduced Scan Angle")
+
+theta_reduced = st.slider("Reduced Scan Angle (degrees)", min_value=1.0,
+                          max_value=float(theta_sm), value=6.0, step=0.5)
+
+res_red = run_design(f_center, f_offset, theta_reduced, G_min, taper_dB,
+                     eta_e_pct, element_name, L_s, GL_pe, X, I_m)
+
+st.markdown("---")
+st.markdown("### Side-by-side Comparison")
+
+compare_data = {
+    "Parameter": [
+        "Max Scan Angle (°)",
+        "Grating Lobe θ_G (°)",
+        "Element Spacing d/λ",
+        "Element Spacing (mm)",
+        "Element Directivity (dBi)",
+        "Scan Loss (dB)",
+        "Required D_p (dBi)",
+        "Number of Elements (grid)",
+        "Aperture Diameter (mm)",
+        "Boresight GL (°)",
+        "Scan-edge GL (°)",
+    ],
+    f"±{theta_sm:.0f}° (Original)": [
+        f"{theta_sm:.1f}",
+        f"{res['theta_G']:.1f}",
+        f"{res['d_hex_norm']:.4f}",
+        f"{res['d_hex_mm']:.3f}",
+        f"{res['De_dBi']:.2f}",
+        f"{res['SL_dB']:.2f}",
+        f"{res['Dp_dBi']:.2f}",
+        f"{res['N_placed']}",
+        f"{res['diameter_circ_m']*1000:.1f}",
+        f"{res['boresight_GL_deg']:.1f}",
+        f"{res['scan_GL_deg']:.1f}",
+    ],
+    f"±{theta_reduced:.0f}° (Reduced)": [
+        f"{theta_reduced:.1f}",
+        f"{res_red['theta_G']:.1f}",
+        f"{res_red['d_hex_norm']:.4f}",
+        f"{res_red['d_hex_mm']:.3f}",
+        f"{res_red['De_dBi']:.2f}",
+        f"{res_red['SL_dB']:.2f}",
+        f"{res_red['Dp_dBi']:.2f}",
+        f"{res_red['N_placed']}",
+        f"{res_red['diameter_circ_m']*1000:.1f}",
+        f"{res_red['boresight_GL_deg']:.1f}",
+        f"{res_red['scan_GL_deg']:.1f}",
+    ],
+}
+
+st.dataframe(compare_data, use_container_width=True, hide_index=True)
+
+st.markdown("---")
+
+# Metrics
+if res["N_placed"] > 0 and res_red["N_placed"] > 0:
+    reduction_pct = (1 - res_red["N_placed"] / res["N_placed"]) * 100
+    spacing_increase = (res_red["d_hex_norm"] / res["d_hex_norm"] - 1) * 100
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Taper Efficiency η_taper", f"{res['eta_taper']*100:.2f} %")
-    c2.metric("Taper Loss T_L", f"{res['TL_dB']:.2f} dB")
-    c3.metric("Scan Loss SL", f"{res['SL_dB']:.2f} dB")
+    c1.metric("Element Reduction",
+              f"{abs(reduction_pct):.1f} %",
+              delta=f"{res['N_placed'] - res_red['N_placed']} fewer elements",
+              delta_color="normal" if reduction_pct > 0 else "inverse")
+    c2.metric("Spacing Increase",
+              f"{spacing_increase:.1f} %",
+              delta=f"{res_red['d_hex_mm'] - res['d_hex_mm']:.3f} mm wider")
+    c3.metric("Scan Loss Reduction",
+              f"{res['SL_dB'] - res_red['SL_dB']:.2f} dB saved")
 
-    st.markdown("---")
+st.markdown("---")
 
-    st.markdown("### ✅  Required Peak Directivity")
-    c1, c2 = st.columns(2)
-    c1.metric("D_p (required)", f"{res['Dp_dBi']:.2f} dBi")
-    c2.metric("Breakdown",
-              f"{G_min:.1f} + {L_s:.1f} + {res['SL_dB']:.2f} + "
-              f"{GL_pe:.1f} + {res['TL_dB']:.2f} + {X:.1f} + {I_m:.1f} dB")
+st.markdown("### Reduced-Scan Array Layout")
+col1, col2 = st.columns(2)
+with col1:
+    fig_red = plot_array_layout(
+        res_red["x_pos"], res_red["y_pos"], res_red["weights"],
+        res_red["R_circ"], res_red["d_hex_m"],
+        title=f"±{theta_reduced:.0f}° Scan — {res_red['N_placed']} elements")
+    st.pyplot(fig_red, use_container_width=True)
+with col2:
+    fig_pat_red = plot_radiation_pattern(
+        res_red["x_pos"], res_red["y_pos"], res_red["weights"],
+        res_red["lambda_c"], res_red["Dp_placed_dBi"],
+        title=f"Pattern — ±{theta_reduced:.0f}° Scan")
+    st.pyplot(fig_pat_red, use_container_width=True)
 
-    st.info(
-        f"To achieve **{G_min:.0f} dBi** minimum gain at the ±{theta_sm:.0f}° scan edge "
-        f"with a {taper_dB:.0f} dB taper and {eta_e_pct:.0f}% element efficiency, "
-        f"the array peak boresight directivity must be at least **{res['Dp_dBi']:.2f} dBi**."
-    )
+st.info(
+    f"**Summary:** Reducing the scan angle from ±{theta_sm:.0f}° to ±{theta_reduced:.0f}° "
+    f"allows larger element spacing ({res_red['d_hex_norm']:.3f}λ vs {res['d_hex_norm']:.3f}λ), "
+    f"which increases element directivity and reduces the total element count from "
+    f"**{res['N_placed']}** to **{res_red['N_placed']}** "
+    f"(a **{abs(reduction_pct):.1f}%** reduction). "
+    f"This translates directly to fewer phase shifters, a simpler feed network, "
+    f"lower power consumption, reduced weight, and significant cost savings."
+)
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# TAB B — Spacing & Elements
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-with tab_b:
-    st.subheader("Part B — Element Spacing, Element Gain & Number of Elements")
-
-    st.markdown(
-        "**Hexagonal lattice spacing** — Eq. (2):\n\n"
-        r"$$\frac{d_h}{\lambda_h} \leq \frac{1.1547}{\sin\theta_{sm} + \sin\theta_G}$$"
-    )
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("d / λ_h", f"{res['d_hex_norm']:.4f}")
-    c2.metric("d (mm)", f"{res['d_hex_mm']:.3f}")
-    c3.metric("Unit-cell area (mm²)", f"{res['A_e_mm2']:.3f}")
-
-    st.markdown("---")
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Element Directivity D_e", f"{res['De_dBi']:.2f} dBi")
-    c2.metric("Element Gain G_e", f"{res['De_dBi'] - 10*math.log10(1/res['eta_e']):.2f} dBi"
-              if res['eta_e'] > 0 else "—")
-    c3.metric("Element 3-dB BW θ₃", f"{res['theta_3_element']:.2f}°")
-
-    st.markdown("---")
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("N (calculated)", f"{res['N_raw']:.1f}")
-    c2.metric("N (rounded up)", f"{res['N']}")
-    c3.metric("N (placed in grid)", f"{res['N_placed']}")
-
-    st.markdown("---")
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Peak Directivity (placed)", f"{res['Dp_placed_dBi']:.2f} dBi")
-    c2.metric("Directivity at scan edge", f"{res['Dp_placed_dBi'] - res['SL_dB']:.2f} dBi")
-    c3.metric("Aperture diameter",
-              f"{res['diameter_circ_m']*1000:.1f} mm  ({res['diameter_circ_lambda']:.1f}λ)")
-
-    st.markdown("---")
-
-    c1, c2 = st.columns(2)
-    c1.metric("Boresight Grating Lobe", f"{res['boresight_GL_deg']:.2f}°")
-    c2.metric("Grating Lobe at scan edge", f"{res['scan_GL_deg']:.2f}°")
-
-    st.success(
-        f"A hexagonal array of **{res['N_placed']} elements** with "
-        f"**d = {res['d_hex_mm']:.3f} mm** ({res['d_hex_norm']:.3f}λ) spacing "
-        f"fits inside a circular aperture of **{res['diameter_circ_m']*1000:.1f} mm** diameter."
-    )
+st.markdown("---")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# TAB C — Layout & Patterns
+# SECTION — Reference Equations
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-with tab_c:
-    st.subheader("Part C — Array Layout & Radiation Patterns")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        fig_layout = plot_array_layout(
-            res["x_pos"], res["y_pos"], res["weights"], res["R_circ"],
-            res["d_hex_m"],
-            title=f"Hexagonal Array Layout  ({res['N_placed']} elements)")
-        st.pyplot(fig_layout, use_container_width=True)
-
-    with col2:
-        fig_eff = plot_efficiency_vs_taper()
-        st.pyplot(fig_eff, use_container_width=True)
-
-    st.markdown("---")
-
-    st.markdown("#### Radiation Pattern (φ = 0° cut)")
-    fig_pat = plot_radiation_pattern(
-        res["x_pos"], res["y_pos"], res["weights"],
-        res["lambda_c"], res["Dp_placed_dBi"],
-        title=f"Array Factor — {res['N_placed']} elements, {taper_dB:.0f} dB taper")
-    st.pyplot(fig_pat, use_container_width=True)
-
-    st.markdown("#### Normalized Pattern")
-    fig_norm = plot_normalized_pattern(
-        res["x_pos"], res["y_pos"], res["weights"],
-        res["lambda_c"], res["Dp_placed_dBi"],
-        title="Normalized Array Radiation Pattern")
-    st.pyplot(fig_norm, use_container_width=True)
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# TAB D — Complexity Reduction
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-with tab_d:
-    st.subheader("Part D — Complexity Reduction with Reduced Scan Angle")
-
-    theta_reduced = st.slider("Reduced Scan Angle (degrees)", min_value=1.0,
-                              max_value=float(theta_sm), value=6.0, step=0.5)
-
-    res_red = run_design(f_center, f_offset, theta_reduced, G_min, taper_dB,
-                         eta_e_pct, element_name, L_s, GL_pe, X, I_m)
-
-    st.markdown("---")
-    st.markdown("### Side-by-side Comparison")
-
-    compare_data = {
-        "Parameter": [
-            "Max Scan Angle (°)",
-            "Grating Lobe θ_G (°)",
-            "Element Spacing d/λ",
-            "Element Spacing (mm)",
-            "Element Directivity (dBi)",
-            "Scan Loss (dB)",
-            "Required D_p (dBi)",
-            "Number of Elements (grid)",
-            "Aperture Diameter (mm)",
-            "Boresight GL (°)",
-            "Scan-edge GL (°)",
-        ],
-        f"±{theta_sm:.0f}° (Original)": [
-            f"{theta_sm:.1f}",
-            f"{res['theta_G']:.1f}",
-            f"{res['d_hex_norm']:.4f}",
-            f"{res['d_hex_mm']:.3f}",
-            f"{res['De_dBi']:.2f}",
-            f"{res['SL_dB']:.2f}",
-            f"{res['Dp_dBi']:.2f}",
-            f"{res['N_placed']}",
-            f"{res['diameter_circ_m']*1000:.1f}",
-            f"{res['boresight_GL_deg']:.1f}",
-            f"{res['scan_GL_deg']:.1f}",
-        ],
-        f"±{theta_reduced:.0f}° (Reduced)": [
-            f"{theta_reduced:.1f}",
-            f"{res_red['theta_G']:.1f}",
-            f"{res_red['d_hex_norm']:.4f}",
-            f"{res_red['d_hex_mm']:.3f}",
-            f"{res_red['De_dBi']:.2f}",
-            f"{res_red['SL_dB']:.2f}",
-            f"{res_red['Dp_dBi']:.2f}",
-            f"{res_red['N_placed']}",
-            f"{res_red['diameter_circ_m']*1000:.1f}",
-            f"{res_red['boresight_GL_deg']:.1f}",
-            f"{res_red['scan_GL_deg']:.1f}",
-        ],
-    }
-
-    st.dataframe(compare_data, use_container_width=True, hide_index=True)
-
-    st.markdown("---")
-
-    # Metrics
-    if res["N_placed"] > 0 and res_red["N_placed"] > 0:
-        reduction_pct = (1 - res_red["N_placed"] / res["N_placed"]) * 100
-        spacing_increase = (res_red["d_hex_norm"] / res["d_hex_norm"] - 1) * 100
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Element Reduction",
-                  f"{abs(reduction_pct):.1f} %",
-                  delta=f"{res['N_placed'] - res_red['N_placed']} fewer elements",
-                  delta_color="normal" if reduction_pct > 0 else "inverse")
-        c2.metric("Spacing Increase",
-                  f"{spacing_increase:.1f} %",
-                  delta=f"{res_red['d_hex_mm'] - res['d_hex_mm']:.3f} mm wider")
-        c3.metric("Scan Loss Reduction",
-                  f"{res['SL_dB'] - res_red['SL_dB']:.2f} dB saved")
-
-    st.markdown("---")
-
-    st.markdown("### Reduced-Scan Array Layout")
-    col1, col2 = st.columns(2)
-    with col1:
-        fig_red = plot_array_layout(
-            res_red["x_pos"], res_red["y_pos"], res_red["weights"],
-            res_red["R_circ"], res_red["d_hex_m"],
-            title=f"±{theta_reduced:.0f}° Scan — {res_red['N_placed']} elements")
-        st.pyplot(fig_red, use_container_width=True)
-    with col2:
-        fig_pat_red = plot_radiation_pattern(
-            res_red["x_pos"], res_red["y_pos"], res_red["weights"],
-            res_red["lambda_c"], res_red["Dp_placed_dBi"],
-            title=f"Pattern — ±{theta_reduced:.0f}° Scan")
-        st.pyplot(fig_pat_red, use_container_width=True)
-
-    st.info(
-        f"**Summary:** Reducing the scan angle from ±{theta_sm:.0f}° to ±{theta_reduced:.0f}° "
-        f"allows larger element spacing ({res_red['d_hex_norm']:.3f}λ vs {res['d_hex_norm']:.3f}λ), "
-        f"which increases element directivity and reduces the total element count from "
-        f"**{res['N_placed']}** to **{res_red['N_placed']}** "
-        f"(a **{abs(reduction_pct):.1f}%** reduction). "
-        f"This translates directly to fewer phase shifters, a simpler feed network, "
-        f"lower power consumption, reduced weight, and significant cost savings."
-    )
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# TAB — Reference Equations
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-with tab_ref:
-    st.subheader("📚  Key Design Equations")
-    st.markdown(r"""
+st.subheader("📚  Key Design Equations")
+st.markdown(r"""
 **Hexagonal lattice spacing** — *Eq. (2)*:
 
 $$\frac{d_h}{\lambda_h} \leq \frac{1.1547}{\sin\theta_{sm} + \sin\theta_G}$$
