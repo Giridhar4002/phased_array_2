@@ -487,7 +487,7 @@ def plot_efficiency_vs_taper():
 # ──────────────────────────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="CICAD 2025 — PA Antenna Design",
+    page_title="Phased Array Problem 2",
     page_icon="📡",
     layout="wide",
 )
@@ -548,12 +548,12 @@ with st.sidebar:
                           value=0.5, step=0.1)
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("# 📡  CICAD 2025 — Phased Array Antenna Design Tool")
+st.markdown("# Phased Array Problem 2")
+st.markdown("**Given Parameters**")
 st.markdown(
-    f"**Problem 2 :** Hexagonal-grid PA at **{f_center} GHz ± {f_offset} GHz**, "
-    f"**{element_name}** elements, circular aperture, "
-    f"**{taper_dB:.0f} dB** taper, **±{theta_sm:.0f}°** scan, "
-    f"**{G_min:.0f} dBi** min gain."
+    "Specifications: Frequency = 44.5 ± 1.0 GHz (43.5 - 45.5 GHz), "
+    "Hexagonal grid, Circular aperture, Potter horn (ηe = 70%), "
+    "Scan: ±9◦, Gmin = 40 dBi, Amplitude taper = 10 dB."
 )
 st.markdown("---")
 
